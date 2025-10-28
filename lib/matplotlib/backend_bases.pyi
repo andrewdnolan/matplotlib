@@ -90,6 +90,19 @@ class RendererBase:
         antialiased: bool,
         edgecolors: Sequence[ColorType] | ColorType | None,
     ) -> None: ...
+    def draw_poly_mesh(
+        self,
+        gc: GraphicsContextBase,
+        master_transform: Transform,
+        nSides,
+        nCells,
+        coordinates: ArrayLike,
+        offsets: ArrayLike | Sequence[ArrayLike],
+        offsetTrans: Transform,
+        facecolors: Sequence[ColorType],
+        antialiased: bool,
+        edgecolors: Sequence[ColorType] | ColorType | None,
+    ) -> None: ...
     def draw_gouraud_triangles(
         self,
         gc: GraphicsContextBase,

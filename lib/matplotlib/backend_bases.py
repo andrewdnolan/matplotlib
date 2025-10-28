@@ -150,6 +150,7 @@ class RendererBase:
     * `draw_markers`
     * `draw_path_collection`
     * `draw_quad_mesh`
+    * `draw_poly_mesh`
     """
     def __init__(self):
         super().__init__()
@@ -278,6 +279,13 @@ class RendererBase:
         return self.draw_path_collection(
             gc, master_transform, paths, [], offsets, offsetTrans, facecolors,
             edgecolors, linewidths, [], [antialiased], [None], 'screen')
+
+    def draw_poly_mesh(self, gc, master_transform, nSides, nCells,
+                       coordinates, offsets, offsetTrans, facecolors,
+                       antialiased, edgecolors):
+        """
+        """
+        raise NotImplementedError
 
     def draw_gouraud_triangles(self, gc, triangles_array, colors_array,
                                transform):

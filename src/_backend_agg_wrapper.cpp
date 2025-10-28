@@ -202,6 +202,36 @@ PyRendererAgg_draw_quad_mesh(RendererAgg *self,
 }
 
 static void
+PyRendererAgg_draw_poly_mesh(RendererAgg *self,
+                             GCAgg &gc,
+                             agg::trans_affine master_transform,
+                             unsigned int n_sides,
+                             unsigned int n_cells,
+                             py::array_t<double, py::array::c_style | py::array::forcecast> coordinates_obj,
+                             py::array_t<double> offsets_obj,
+                             agg::trans_affine offset_trans,
+                             py::array_t<double> facecolors_obj,
+                             bool antialiased,
+                             py::array_t<double> edgecolors_obj)
+{
+    auto coordinates = coordinates_obj.mutable_unchecked<3>();
+    auto offsets = convert_points(offsets_obj);
+    auto facecolors = convert_colors(facecolors_obj);
+    auto edgecolors = convert_colors(edgecolors_obj);
+
+    self->draw_poly_mesh(gc,
+            master_transform,
+            n_sides,
+            n_cells,
+            coordinates,
+            offsets,
+            offset_trans,
+            facecolors,
+            antialiased,
+            edgecolors);
+}
+
+static void
 PyRendererAgg_draw_gouraud_triangles(RendererAgg *self,
                                      GCAgg &gc,
                                      py::array_t<double> points_obj,
@@ -236,6 +266,10 @@ PYBIND11_MODULE(_backend_agg, m, py::mod_gil_not_used())
              py::kw_only(), "hatchcolors"_a = py::array_t<double>().reshape({0, 4}))
         .def("draw_quad_mesh", &PyRendererAgg_draw_quad_mesh,
              "gc"_a, "master_transform"_a, "mesh_width"_a, "mesh_height"_a,
+             "coordinates"_a, "offsets"_a, "offset_trans"_a, "facecolors"_a,
+             "antialiased"_a, "edgecolors"_a)
+        .def("draw_poly_mesh", &PyRendererAgg_draw_poly_mesh,
+             "gc"_a, "master_transform"_a, "n_sides"_a, "n_cells"_a,
              "coordinates"_a, "offsets"_a, "offset_trans"_a, "facecolors"_a,
              "antialiased"_a, "edgecolors"_a)
         .def("draw_gouraud_triangles", &PyRendererAgg_draw_gouraud_triangles,

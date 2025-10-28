@@ -8,6 +8,7 @@
 
 #include <pybind11/pybind11.h>
 
+#include <iostream>
 #include <cmath>
 #include <algorithm>
 #include <functional>
@@ -182,6 +183,18 @@ class RendererAgg
                         agg::trans_affine &master_transform,
                         unsigned int mesh_width,
                         unsigned int mesh_height,
+                        CoordinateArray &coordinates,
+                        OffsetArray &offsets,
+                        agg::trans_affine &offset_trans,
+                        ColorArray &facecolors,
+                        bool antialiased,
+                        ColorArray &edgecolors);
+
+    template <class CoordinateArray, class OffsetArray, class ColorArray>
+    void draw_poly_mesh(GCAgg &gc,
+                        agg::trans_affine &master_transform,
+                        unsigned int n_sides,
+                        unsigned int n_cells,
                         CoordinateArray &coordinates,
                         OffsetArray &offsets,
                         agg::trans_affine &offset_trans,
@@ -1092,6 +1105,119 @@ inline void RendererAgg::draw_quad_mesh(GCAgg &gc,
                                         ColorArray &edgecolors)
 {
     QuadMeshGenerator<CoordinateArray> path_generator(mesh_width, mesh_height, coordinates);
+
+    array::empty<double> transforms;
+    array::scalar<double, 1> linewidths(gc.linewidth);
+    array::scalar<uint8_t, 1> antialiaseds(antialiased);
+    DashesVector linestyles;
+    ColorArray hatchcolors = py::array_t<double>().reshape({0, 4}).unchecked<double, 2>();
+
+    _draw_path_collection_generic(gc,
+                                  master_transform,
+                                  gc.cliprect,
+                                  gc.clippath.path,
+                                  gc.clippath.trans,
+                                  path_generator,
+                                  transforms,
+                                  offsets,
+                                  offset_trans,
+                                  facecolors,
+                                  edgecolors,
+                                  linewidths,
+                                  linestyles,
+                                  antialiaseds,
+                                  true, // check_snap
+                                  false,
+                                  hatchcolors);
+}
+
+template <class CoordinateArray>
+class PolyMeshGenerator
+{
+    unsigned m_nSides;
+    unsigned m_nCells;
+    CoordinateArray m_coordinates;
+
+    class PolyMeshPathIterator
+    {
+        unsigned m_iterator;
+        unsigned m_c;
+        const CoordinateArray *m_coordinates;
+        unsigned m_maxSides;
+
+        public:
+          PolyMeshPathIterator(unsigned c, const CoordinateArray *coordinates, unsigned maxSides)
+              : m_iterator(0), m_c(c), m_coordinates(coordinates), m_maxSides(maxSides)
+          {
+          }
+
+        private:
+          inline unsigned vertex(unsigned idx, double *x, double *y)
+          {
+              unsigned real_idx = (idx >= m_maxSides) ? 0 : idx;
+              *x = (*m_coordinates)(m_c, real_idx, 0);
+              *y = (*m_coordinates)(m_c, real_idx, 1);
+              return (idx) ? agg::path_cmd_line_to : agg::path_cmd_move_to;
+          }
+
+        public:
+          inline unsigned vertex(double *x, double *y)
+          {
+              if (m_iterator >= total_vertices()) {
+                  return agg::path_cmd_stop;
+              }
+              return vertex(m_iterator++, x, y);
+          }
+
+          inline void rewind(unsigned path_id)
+           {
+               m_iterator = path_id;
+           }
+
+          inline unsigned total_vertices()
+           {
+               // +1 for the close vertex
+               return m_maxSides + 1;
+           }
+
+          inline bool should_simplify()
+          {
+              return false;
+          }
+    };
+
+  public:
+    typedef PolyMeshPathIterator path_iterator;
+
+    inline PolyMeshGenerator(unsigned nSides, unsigned nCells, CoordinateArray &coordinates)
+        : m_nSides(nSides), m_nCells(nCells), m_coordinates(coordinates)
+    {
+    }
+
+    inline size_t num_paths() const
+    {
+        return (size_t) m_nCells;
+    }
+
+    inline path_iterator operator()(size_t i) const
+    {
+        return PolyMeshPathIterator(i, &m_coordinates, m_nSides);
+    }
+};
+
+template <class CoordinateArray, class OffsetArray, class ColorArray>
+inline void RendererAgg::draw_poly_mesh(GCAgg &gc,
+                                        agg::trans_affine &master_transform,
+                                        unsigned int n_sides,
+                                        unsigned int n_cells,
+                                        CoordinateArray &coordinates,
+                                        OffsetArray &offsets,
+                                        agg::trans_affine &offset_trans,
+                                        ColorArray &facecolors,
+                                        bool antialiased,
+                                        ColorArray &edgecolors)
+{
+    PolyMeshGenerator<CoordinateArray> path_generator(n_sides, n_cells, coordinates);
 
     array::empty<double> transforms;
     array::scalar<double, 1> linewidths(gc.linewidth);
